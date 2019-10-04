@@ -4,8 +4,10 @@ using System;
 using System.Threading.Tasks;
 using System.Threading;
 
-namespace Parse.Internal {
-  internal interface IParsePushController {
-    Task SendPushNotificationAsync(IPushState state, String sessionToken, CancellationToken cancellationToken);
-  }
+namespace Parse.Push.Internal
+{
+    public interface IParsePushController
+    {
+        Task SendPushNotificationAsync(IPushState state, CancellationToken cancellationToken);
+    }
 }

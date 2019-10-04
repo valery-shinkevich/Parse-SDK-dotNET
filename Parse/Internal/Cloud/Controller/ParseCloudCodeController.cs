@@ -5,31 +5,38 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Parse.Utilities;
+using Parse.Common.Internal;
 
-namespace Parse.Internal {
-  internal class ParseCloudCodeController : IParseCloudCodeController {
-    private readonly IParseCommandRunner commandRunner;
+namespace Parse.Core.Internal
+{
+    public class ParseCloudCodeController : IParseCloudCodeController
+    {
+        private readonly IParseCommandRunner commandRunner;
 
-    internal ParseCloudCodeController(IParseCommandRunner commandRunner) {
-      this.commandRunner = commandRunner;
-    }
-
-    public Task<T> CallFunctionAsync<T>(String name,
-        IDictionary<string, object> parameters,
-        string sessionToken,
-        CancellationToken cancellationToken) {
-      var command = new ParseCommand(string.Format("functions/{0}", Uri.EscapeUriString(name)),
-          method: "POST",
-          sessionToken: sessionToken,
-          data: NoObjectsEncoder.Instance.Encode(parameters) as IDictionary<string, object>);
-      
-      return commandRunner.RunCommandAsync(command, cancellationToken: cancellationToken).OnSuccess(t => {
-        var decoded = ParseDecoder.Instance.Decode(t.Result.Item2) as IDictionary<string, object>;
-        if (!decoded.ContainsKey("result")) {
-          return default(T);
+        public ParseCloudCodeController(IParseCommandRunner commandRunner)
+        {
+            this.commandRunner = commandRunner;
         }
-        return (T)Conversion.ConvertTo<T>(decoded["result"]);
-      });
+
+        public Task<T> CallFunctionAsync<T>(string name,
+            IDictionary<string, object> parameters,
+            string sessionToken,
+            CancellationToken cancellationToken)
+        {
+            var command = new ParseCommand(string.Format("functions/{0}", Uri.EscapeUriString(name)),
+                method: "POST",
+                sessionToken: sessionToken,
+                data: NoObjectsEncoder.Instance.Encode(parameters) as IDictionary<string, object>);
+
+            return commandRunner.RunCommandAsync(command, cancellationToken: cancellationToken).OnSuccess(t =>
+            {
+                var decoded = ParseDecoder.Instance.Decode(t.Result.Item2) as IDictionary<string, object>;
+                if (!decoded.ContainsKey("result"))
+                {
+                    return default(T);
+                }
+                return Conversion.To<T>(decoded["result"]);
+            });
+        }
     }
-  }
 }

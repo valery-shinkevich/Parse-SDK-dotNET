@@ -3,18 +3,18 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
-namespace Parse.Internal
+namespace Parse.Common.Internal
 {
     /// <summary>
     /// An equality comparer that uses the object identity (i.e. ReferenceEquals)
     /// rather than .Equals, allowing identity to be used for checking equality in
     /// ISets and IDictionaries.
     /// </summary>
-    class IdentityEqualityComparer<T> : IEqualityComparer<T>
+    public class IdentityEqualityComparer<T> : IEqualityComparer<T>
     {
         public bool Equals(T x, T y)
         {
-            return object.ReferenceEquals(x, y);
+            return ReferenceEquals(x, y);
         }
 
         public int GetHashCode(T obj)

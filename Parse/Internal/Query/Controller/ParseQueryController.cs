@@ -6,69 +6,35 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+using Parse.Common.Internal;
 
-namespace Parse.Internal {
-  internal class ParseQueryController : IParseQueryController {
-    public Task<IEnumerable<IObjectState>> FindAsync<T>(ParseQuery<T> query,
-        ParseUser user,
-        CancellationToken cancellationToken) where T : ParseObject {
-      string sessionToken = user != null ? user.SessionToken : null;
+namespace Parse.Core.Internal
+{
+    internal class ParseQueryController : IParseQueryController
+    {
+        private readonly IParseCommandRunner commandRunner;
 
-      return FindAsync(query.ClassName, query.BuildParameters(), sessionToken, cancellationToken).OnSuccess(t => {
-        var items = t.Result["results"] as IList<object>;
+        public ParseQueryController(IParseCommandRunner commandRunner) => this.commandRunner = commandRunner;
 
-        return (from item in items
-                select ParseObjectCoder.Instance.Decode(item as IDictionary<string, object>, ParseDecoder.Instance));
-      });
-    }
+        public Task<IEnumerable<IObjectState>> FindAsync<T>(ParseQuery<T> query, ParseUser user, CancellationToken cancellationToken) where T : ParseObject => FindAsync(query.ClassName, query.BuildParameters(), user?.SessionToken, cancellationToken).OnSuccess(t => (from item in t.Result["results"] as IList<object> select ParseObjectCoder.Instance.Decode(item as IDictionary<string, object>, ParseDecoder.Instance)));
 
-    public Task<int> CountAsync<T>(ParseQuery<T> query,
-        ParseUser user,
-        CancellationToken cancellationToken) where T : ParseObject {
-      string sessionToken = user != null ? user.SessionToken : null;
-      var parameters = query.BuildParameters();
-      parameters["limit"] = 0;
-      parameters["count"] = 1;
+        public Task<int> CountAsync<T>(ParseQuery<T> query, ParseUser user, CancellationToken cancellationToken) where T : ParseObject
+        {
+            var parameters = query.BuildParameters();
+            parameters["limit"] = 0;
+            parameters["count"] = 1;
 
-      return FindAsync(query.ClassName, parameters, sessionToken, cancellationToken).OnSuccess(t => {
-        return Convert.ToInt32(t.Result["count"]);
-      });
-    }
-
-    public Task<IObjectState> FirstAsync<T>(ParseQuery<T> query,
-        ParseUser user,
-        CancellationToken cancellationToken) where T : ParseObject {
-      string sessionToken = user != null ? user.SessionToken : null;
-      var parameters = query.BuildParameters();
-      parameters["limit"] = 1;
-
-      return FindAsync(query.ClassName, parameters, sessionToken, cancellationToken).OnSuccess(t => {
-        var items = t.Result["results"] as IList<object>;
-        var item = items.FirstOrDefault() as IDictionary<string, object>;
-
-        // Not found. Return empty state.
-        if (item == null) {
-          return (IObjectState)null;
+            return FindAsync(query.ClassName, parameters, user?.SessionToken, cancellationToken).OnSuccess(t => Convert.ToInt32(t.Result["count"]));
         }
 
-        return ParseObjectCoder.Instance.Decode(item, ParseDecoder.Instance);
-      });
-    }
+        public Task<IObjectState> FirstAsync<T>(ParseQuery<T> query, ParseUser user, CancellationToken cancellationToken) where T : ParseObject
+        {
+            var parameters = query.BuildParameters();
+            parameters["limit"] = 1;
 
-    private Task<IDictionary<string, object>> FindAsync(string className,
-        IDictionary<string, object> parameters,
-        string sessionToken,
-        CancellationToken cancellationToken) {
-      var command = new ParseCommand(string.Format("classes/{0}?{1}",
-              Uri.EscapeDataString(className),
-              ParseClient.BuildQueryString(parameters)),
-          method: "GET",
-          sessionToken: sessionToken,
-          data: null);
+            return FindAsync(query.ClassName, parameters, user?.SessionToken, cancellationToken).OnSuccess(t => (t.Result["results"] as IList<object>).FirstOrDefault() as IDictionary<string, object> is Dictionary<string, object> item && item != null ? ParseObjectCoder.Instance.Decode(item, ParseDecoder.Instance) : null);
+        }
 
-      return ParseClient.ParseCommandRunner.RunCommandAsync(command, cancellationToken: cancellationToken).OnSuccess(t => {
-        return t.Result.Item2;
-      });
+        private Task<IDictionary<string, object>> FindAsync(string className, IDictionary<string, object> parameters, string sessionToken, CancellationToken cancellationToken) => commandRunner.RunCommandAsync(new ParseCommand($"classes/{Uri.EscapeDataString(className)}?{ParseClient.BuildQueryString(parameters)}", method: "GET", sessionToken: sessionToken, data: null), cancellationToken: cancellationToken).OnSuccess(t => t.Result.Item2);
     }
-  }
 }

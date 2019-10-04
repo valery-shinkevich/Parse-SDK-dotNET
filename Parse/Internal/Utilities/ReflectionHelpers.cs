@@ -5,101 +5,121 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Parse.Internal {
-  static class ReflectionHelpers {
-    internal static IEnumerable<PropertyInfo> GetProperties(Type type) {
+namespace Parse.Common.Internal
+{
+    public static class ReflectionHelpers
+    {
+        public static IEnumerable<PropertyInfo> GetProperties(Type type)
+        {
 #if MONO || UNITY
       return type.GetProperties();
 #else
-      return type.GetRuntimeProperties();
+            return type.GetRuntimeProperties();
 #endif
-    }
+        }
 
-    internal static MethodInfo GetMethod(Type type, string name, Type[] parameters) {
+        public static MethodInfo GetMethod(Type type, string name, Type[] parameters)
+        {
 #if MONO || UNITY
       return type.GetMethod(name, parameters);
 #else
-      return type.GetRuntimeMethod(name, parameters);
+            return type.GetRuntimeMethod(name, parameters);
 #endif
-    }
+        }
 
-    internal static bool IsPrimitive(Type type) {
-#if MONO
+        public static bool IsPrimitive(Type type)
+        {
+#if MONO || UNITY
 			return type.IsPrimitive;
 #else
-      return type.GetTypeInfo().IsPrimitive;
+            return type.GetTypeInfo().IsPrimitive;
 #endif
-    }
+        }
 
-    internal static IEnumerable<Type> GetInterfaces(Type type) {
+        public static IEnumerable<Type> GetInterfaces(Type type)
+        {
 #if MONO || UNITY
       return type.GetInterfaces();
 #else
-      return type.GetTypeInfo().ImplementedInterfaces;
+            return type.GetTypeInfo().ImplementedInterfaces;
 #endif
-    }
+        }
 
-    internal static bool IsConstructedGenericType(Type type) {
+        public static bool IsConstructedGenericType(Type type)
+        {
 #if UNITY
       return type.IsGenericType && !type.IsGenericTypeDefinition;
 #else
-      return type.IsConstructedGenericType;
+            return type.IsConstructedGenericType;
 #endif
-    }
+        }
 
-    internal static IEnumerable<ConstructorInfo> GetConstructors(Type type) {
+        public static IEnumerable<ConstructorInfo> GetConstructors(Type type)
+        {
 #if UNITY
       BindingFlags searchFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
       return type.GetConstructors(searchFlags);
 #else
-      return type.GetTypeInfo().DeclaredConstructors
-        .Where(c => (c.Attributes & MethodAttributes.Static) == 0);
+            return type.GetTypeInfo().DeclaredConstructors
+              .Where(c => (c.Attributes & MethodAttributes.Static) == 0);
 #endif
-    }
+        }
 
-    internal static Type[] GetGenericTypeArguments(Type type) {
+        public static Type[] GetGenericTypeArguments(Type type)
+        {
 #if UNITY
       return type.GetGenericArguments();
 #else
-      return type.GenericTypeArguments;
+            return type.GenericTypeArguments;
 #endif
-    }
+        }
 
-    internal static PropertyInfo GetProperty(Type type, string name) {
+        public static PropertyInfo GetProperty(Type type, string name)
+        {
 #if MONO || UNITY
       return type.GetProperty(name);
 #else
-      return type.GetRuntimeProperty(name);
+            return type.GetRuntimeProperty(name);
 #endif
-    }
+        }
 
-    /// <summary>
-    /// This method helps simplify the process of getting a constructor for a type.
-    /// A method like this exists in .NET but is not allowed in a Portable Class Library,
-    /// so we've built our own.
-    /// </summary>
-    /// <param name="self"></param>
-    /// <param name="parameterTypes"></param>
-    /// <returns></returns>
-    internal static ConstructorInfo FindConstructor(this Type self, params Type[] parameterTypes) {
-      var constructors =
-        from constructor in GetConstructors(self)
-        let parameters = constructor.GetParameters()
-        let types = from p in parameters select p.ParameterType
-        where types.SequenceEqual(parameterTypes)
-        select constructor;
-      return constructors.SingleOrDefault();
-    }
+        /// <summary>
+        /// This method helps simplify the process of getting a constructor for a type.
+        /// A method like this exists in .NET but is not allowed in a Portable Class Library,
+        /// so we've built our own.
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="parameterTypes"></param>
+        /// <returns></returns>
+        public static ConstructorInfo FindConstructor(this Type self, params Type[] parameterTypes)
+        {
+            var constructors =
+              from constructor in GetConstructors(self)
+              let parameters = constructor.GetParameters()
+              let types = from p in parameters select p.ParameterType
+              where types.SequenceEqual(parameterTypes)
+              select constructor;
+            return constructors.SingleOrDefault();
+        }
 
-    internal static bool IsNullable(Type t) {
-      bool isGeneric;
+        public static bool IsNullable(Type t)
+        {
+            bool isGeneric;
 #if UNITY
       isGeneric = t.IsGenericType && !t.IsGenericTypeDefinition;
 #else
-      isGeneric = t.IsConstructedGenericType;
+            isGeneric = t.IsConstructedGenericType;
 #endif
-      return isGeneric && t.GetGenericTypeDefinition().Equals(typeof(Nullable<>));
-    }
-  }
-}
+            return isGeneric && t.GetGenericTypeDefinition().Equals(typeof(Nullable<>));
+        }
 
+        public static IEnumerable<T> GetCustomAttributes<T>(this Assembly assembly) where T : Attribute
+        {
+#if UNITY
+      return assembly.GetCustomAttributes(typeof(T), false).Select(attr => attr as T);
+#else
+            return CustomAttributeExtensions.GetCustomAttributes<T>(assembly);
+#endif
+        }
+    }
+}

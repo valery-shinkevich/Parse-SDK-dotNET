@@ -4,16 +4,33 @@ using System;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Collections.Generic;
+using Parse.Common.Internal;
+using Parse.Core.Internal;
 
-namespace Parse.Internal {
-  internal class ParsePushController : IParsePushController {
-    public Task SendPushNotificationAsync(IPushState state, String sessionToken, CancellationToken cancellationToken) {
-      var command = new ParseCommand("push",
-          method: "POST",
-          sessionToken: sessionToken,
-          data: ParsePushEncoder.Instance.Encode(state));
+namespace Parse.Push.Internal
+{
+    internal class ParsePushController : IParsePushController
+    {
+        private readonly IParseCommandRunner commandRunner;
+        private readonly IParseCurrentUserController currentUserController;
 
-      return ParseClient.ParseCommandRunner.RunCommandAsync(command, cancellationToken: cancellationToken);
+        public ParsePushController(IParseCommandRunner commandRunner, IParseCurrentUserController currentUserController)
+        {
+            this.commandRunner = commandRunner;
+            this.currentUserController = currentUserController;
+        }
+
+        public Task SendPushNotificationAsync(IPushState state, CancellationToken cancellationToken)
+        {
+            return currentUserController.GetCurrentSessionTokenAsync(cancellationToken).OnSuccess(sessionTokenTask =>
+            {
+                var command = new ParseCommand("push",
+                    method: "POST",
+                    sessionToken: sessionTokenTask.Result,
+                    data: ParsePushEncoder.Instance.Encode(state));
+
+                return commandRunner.RunCommandAsync(command, cancellationToken: cancellationToken);
+            }).Unwrap();
+        }
     }
-  }
 }
